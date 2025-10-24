@@ -1,0 +1,12 @@
+# environment variables
+.env
+
+# local db
+local.db
+
+# pycache
+__pycache__/
+
+# virtual environment
+.venv/
+venv/

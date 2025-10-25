@@ -28,3 +28,18 @@ class SimilarityResponse(BaseModel):
     similarity: float
     file1: str
     file2: str
+
+
+class ArtistMatch(BaseModel):
+    """Individual artist match result"""
+    artist_name: str
+    similarity_score: float
+    image_filename: str
+    image_path: str
+
+
+class SimilarArtistResponse(BaseModel):
+    """Response model for finding similar artists"""
+    query_filename: str
+    matches: List[ArtistMatch]
+    total_results: int

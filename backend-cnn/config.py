@@ -31,5 +31,9 @@ class Settings(BaseSettings):
     use_pretrained: bool = True
     model_device: str = "auto"  # "auto", "cpu", or "cuda"
 
+    # Pinecone Settings
+    pinecone_api_key: str = ""
+    pinecone_index_name: str = "artist-styles"
+
 
 settings = Settings()

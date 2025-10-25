@@ -7,13 +7,15 @@ import io
 from PIL import Image
 
 from schemas import EmbeddingResponse, SimilarityResponse, BatchEncodeResponse
-from schemas.image_schemas import ImageEmbeddingResult
+from schemas.image_schemas import ImageEmbeddingResult, SimilarArtistResponse
 from services import EncoderService
+from services.pinecone_service import PineconeService
 
 router = APIRouter(prefix="/images", tags=["images"])
 
-# Initialize encoder service
+# Initialize services
 encoder_service = EncoderService()
+pinecone_service = PineconeService()
 
 
 @router.post("/encode", response_model=EmbeddingResponse)
@@ -110,14 +112,77 @@ async def compute_similarity(
         # Compute similarity using service
         similarity = encoder_service.compute_similarity(embedding1, embedding2)
 
+        # Handle potential NaN or inf values
+        if not (-1.0 <= similarity <= 1.0):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Invalid similarity score: {similarity}"
+            )
+
         return SimilarityResponse(
-            similarity=similarity,
-            file1=file1.filename,
-            file2=file2.filename
+            similarity=float(similarity),
+            file1=file1.filename or "unknown",
+            file2=file2.filename or "unknown"
         )
 
     except Exception as e:
         raise HTTPException(
             status_code=400,
             detail=f"Error computing similarity: {str(e)}"
+        )
+
+
+@router.post("/find-similar-artist", response_model=SimilarArtistResponse)
+async def find_similar_artist(
+    file: UploadFile = File(...),
+    top_k: int = 10
+):
+    """
+    Find artists with similar style to the uploaded image.
+
+    This endpoint:
+    1. Encodes the uploaded image
+    2. Queries Pinecone for similar embeddings
+    3. Returns top K most similar artists
+
+    Args:
+        file: Image file to analyze
+        top_k: Number of similar artists to return (default: 10)
+
+    Returns:
+        SimilarArtistResponse with list of similar artists
+    """
+    try:
+        # Encode the uploaded image
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents)).convert('RGB')
+        embedding = encoder_service.encode_image(image)
+
+        # Query Pinecone for similar images
+        results = pinecone_service.query_similar(
+            query_embedding=embedding,
+            top_k=top_k
+        )
+
+        # Format results
+        matches = []
+        for result in results:
+            metadata = result['metadata']
+            matches.append({
+                'artist_name': metadata.get('artist_name', 'Unknown'),
+                'similarity_score': result['score'],
+                'image_filename': metadata.get('image_filename', ''),
+                'image_path': metadata.get('image_path', '')
+            })
+
+        return SimilarArtistResponse(
+            query_filename=file.filename or "unknown",
+            matches=matches,
+            total_results=len(matches)
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error finding similar artists: {str(e)}"
         )

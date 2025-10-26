@@ -1,0 +1,7 @@
+
+# Exclude the datasets directory
+datasets/
+
+# Exclude Python cache files
+__pycache__/
+*.pyc

@@ -27,6 +27,15 @@ class EncoderService:
                 embedding_dim=settings.embedding_dim,
                 use_pretrained=settings.use_pretrained
             )
+
+            # Load fine-tuned weights if available
+            from pathlib import Path
+            finetuned_path = Path(__file__).parent.parent / "models" / "finetuned_encoder.pth"
+            if finetuned_path.exists():
+                print(f"✅ Loading fine-tuned weights from {finetuned_path}")
+                cls._encoder.load_weights(str(finetuned_path))
+            else:
+                print("⚠️  Using pre-trained ImageNet weights (no fine-tuned model found)")
         return cls._instance
 
     def encode_image(self, image: Image.Image) -> np.ndarray:

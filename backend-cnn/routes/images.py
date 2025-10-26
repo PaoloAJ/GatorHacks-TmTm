@@ -10,12 +10,14 @@ from schemas import EmbeddingResponse, SimilarityResponse, BatchEncodeResponse
 from schemas.image_schemas import ImageEmbeddingResult, SimilarArtistResponse
 from services import EncoderService
 from services.pinecone_service import PineconeService
+from services.artist_style_service import ArtistStyleService
 
 router = APIRouter(prefix="/images", tags=["images"])
 
 # Initialize services
 encoder_service = EncoderService()
 pinecone_service = PineconeService()
+artist_style_service = ArtistStyleService()
 
 
 @router.post("/encode", response_model=EmbeddingResponse)
@@ -185,4 +187,98 @@ async def find_similar_artist(
         raise HTTPException(
             status_code=500,
             detail=f"Error finding similar artists: {str(e)}"
+        )
+
+
+@router.post("/match-artist-style")
+async def match_artist_style(
+    file: UploadFile = File(...),
+    top_k: int = 5,
+    sample_size: int = 50
+):
+    """
+    Match uploaded image to artist styles (not individual artworks).
+
+    This endpoint finds which artists' overall style best matches the uploaded image
+    by aggregating similarity scores across multiple artworks.
+
+    Args:
+        file: Image file to analyze
+        top_k: Number of top matching artists to return (default: 5)
+        sample_size: Number of similar images to sample for aggregation (default: 50)
+
+    Returns:
+        Dictionary with top matching artists and their aggregated scores
+    """
+    try:
+        # Encode the uploaded image
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents)).convert('RGB')
+        embedding = encoder_service.encode_image(image)
+
+        # Find matching artists using aggregation strategy
+        artist_matches = artist_style_service.find_artist_by_aggregation(
+            query_embedding=embedding,
+            top_k=top_k,
+            sample_size=sample_size
+        )
+
+        return {
+            'query_filename': file.filename or "unknown",
+            'matching_artists': artist_matches,
+            'total_artists_found': len(artist_matches),
+            'sample_size': sample_size
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error matching artist style: {str(e)}"
+        )
+
+
+@router.post("/match-artist-style-fast")
+async def match_artist_style_fast(
+    file: UploadFile = File(...),
+    top_k: int = 5
+):
+    """
+    Fast artist style matching using pre-computed centroids.
+
+    This endpoint uses pre-computed "hero" style vectors for each artist,
+    providing much faster results than the aggregation method.
+
+    Requires artist centroids to be uploaded to Pinecone first
+    (run upload script with centroid computation).
+
+    Args:
+        file: Image file to analyze
+        top_k: Number of top matching artists to return (default: 5)
+
+    Returns:
+        Dictionary with top matching artists based on centroid similarity
+    """
+    try:
+        # Encode the uploaded image
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents)).convert('RGB')
+        embedding = encoder_service.encode_image(image)
+
+        # Find matching artists using centroid method
+        artist_matches = artist_style_service.find_artist_by_centroid(
+            query_embedding=embedding,
+            top_k=top_k
+        )
+
+        return {
+            'query_filename': file.filename or "unknown",
+            'matching_artists': artist_matches,
+            'total_artists_found': len(artist_matches),
+            'method': 'centroid'
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error matching artist style: {str(e)}"
         )

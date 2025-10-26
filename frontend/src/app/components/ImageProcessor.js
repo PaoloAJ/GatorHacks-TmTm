@@ -165,21 +165,56 @@ export function ImageProcessor({ clipResults, cnnResults, loadingClip, loadingCn
               </Card>
             );
           })}
-          {activeMethod === 'CNN' && cnnResults.matching_artists.map((result, index) => {
-            const formattedArtist = formatArtistName(result.artist_name);
+          {activeMethod === 'CNN' && cnnResults.map((result) => {
+            const formattedYear = formatYear(result.year);
+            const formattedTitle = cleanTitle(result.title, result.year);
+            const formattedArtist = formatArtistName(result.artist);
 
             return (
-              <Card key={index} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary">Rank #{index + 1}</Badge>
-                        <Badge variant="outline">Similarity: {(result.similarity_score * 100).toFixed(1)}%</Badge>
+              <Card key={result.rank} className="overflow-hidden hover:shadow-lg transition-shadow">
+                <div className="flex flex-col md:flex-row gap-6 p-4">
+                  {/* Image on the left */}
+                  <div className="w-full md:w-48 h-48 shrink-0 overflow-hidden rounded-lg bg-muted">
+                    <Image
+                      src={result.cdn_url}
+                      alt={formattedTitle}
+                      width={192}
+                      height={192}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  {/* Details on the right */}
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="secondary">Rank #{result.rank}</Badge>
+                          <Badge variant="outline">Score: {result.score.toFixed(3)}</Badge>
+                        </div>
+                        <h3 className="mt-2">{formattedTitle}</h3>
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg font-semibold">{formattedArtist}</span>
+                        <span className="text-muted-foreground">Artist:</span>
+                        <span>{formattedArtist}</span>
                       </div>
+
+                      {formattedYear && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">Year:</span>
+                          <span>{formattedYear}</span>
+                        </div>
+                      )}
+
+                      {result.style && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">Style:</span>
+                          <span>{result.style}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

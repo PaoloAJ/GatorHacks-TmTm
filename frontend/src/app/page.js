@@ -99,22 +99,27 @@ export default function App() {
       const formData = new FormData();
       formData.append("file", selectedFile);
 
-      const response = await fetch("/api/cnn", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        "https://imagesimilarity.up.railway.app/search?alpha=0.3&top_k=5",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          `Server responded with status ${response.status}: ${errorData.error || response.statusText}`
+          `Server responded with status ${response.status}: ${
+            errorData.error || response.statusText
+          }`
         );
       }
 
       const data = await response.json();
 
-      if (data) {
-        setCnnResults(data);
+      if (data.results && Array.isArray(data.results)) {
+        setCnnResults(data.results);
         setClipResults(null); // Clear CLIP results when showing CNN
       } else {
         throw new Error("Invalid response format from server");
@@ -155,7 +160,9 @@ export default function App() {
                 {selectedImage ? (
                   <>
                     <div className="w-full">
-                      <h3 className="text-sm font-medium mb-1">Original Image</h3>
+                      <h3 className="text-sm font-medium mb-1">
+                        Original Image
+                      </h3>
                       <p className="text-xs text-muted-foreground truncate mb-2">
                         {fileName}
                       </p>
@@ -175,7 +182,9 @@ export default function App() {
                       <Upload className="w-8 h-8 text-primary" />
                     </div>
                     <div className="text-center">
-                      <h3 className="text-sm font-medium mb-1">Upload your image</h3>
+                      <h3 className="text-sm font-medium mb-1">
+                        Upload your image
+                      </h3>
                       <p className="text-xs text-muted-foreground mb-2">
                         JPG, PNG, or GIF formats
                       </p>

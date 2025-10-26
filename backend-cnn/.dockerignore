@@ -1,0 +1,31 @@
+# Exclude large datasets (not needed at runtime)
+datasets/
+
+# Exclude Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Exclude git
+.git
+.gitignore
+
+# Exclude env files (use Docker secrets instead)
+.env
+.env.local
+
+# Exclude scripts (only for offline processing)
+scripts/
+
+# Exclude model checkpoints (keep only finetuned_encoder.pth)
+models/checkpoint.pth
+
+# Exclude documentation
+*.md
+README.md
+
+# Exclude test files
+test_*.py
+*_test.py

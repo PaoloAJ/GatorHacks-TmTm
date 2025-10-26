@@ -109,7 +109,7 @@ export function ImageProcessor({ clipResults, cnnResults, loadingClip, loadingCn
         </div>
       ) : hasResults ? (
         <div className="space-y-4">
-          {results.map((result) => {
+          {activeMethod === 'CLIP' && results.map((result) => {
             const formattedYear = formatYear(result.year);
             const formattedTitle = cleanTitle(result.title, result.year);
             const formattedArtist = formatArtistName(result.artist);
@@ -159,6 +159,27 @@ export function ImageProcessor({ clipResults, cnnResults, loadingClip, loadingCn
                           <span>{result.style}</span>
                         </div>
                       )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+          {activeMethod === 'CNN' && cnnResults.matching_artists.map((result, index) => {
+            const formattedArtist = formatArtistName(result.artist_name);
+
+            return (
+              <Card key={index} className="overflow-hidden hover:shadow-lg transition-shadow">
+                <div className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">Rank #{index + 1}</Badge>
+                        <Badge variant="outline">Similarity: {(result.similarity_score * 100).toFixed(1)}%</Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-semibold">{formattedArtist}</span>
+                      </div>
                     </div>
                   </div>
                 </div>

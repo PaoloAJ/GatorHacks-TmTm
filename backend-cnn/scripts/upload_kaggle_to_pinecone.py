@@ -19,6 +19,8 @@ import numpy as np
 from tqdm import tqdm
 import hashlib
 import json
+import unicodedata
+import re
 
 # Add parent directory to path to import from project
 sys.path.append(str(Path(__file__).parent.parent))
@@ -26,6 +28,36 @@ sys.path.append(str(Path(__file__).parent.parent))
 from services.encoder_service import EncoderService
 from services.pinecone_service import PineconeService
 from config import settings
+
+
+def make_ascii_safe_id(text: str) -> str:
+    """
+    Convert text to ASCII-safe ID for Pinecone.
+
+    Handles special characters like accents (é, ñ, etc.) by converting to ASCII.
+
+    Args:
+        text: Original text (may contain unicode)
+
+    Returns:
+        ASCII-safe string suitable for Pinecone IDs
+    """
+    # Normalize unicode characters (é -> e, ñ -> n, etc.)
+    text = unicodedata.normalize('NFKD', text)
+
+    # Encode to ASCII, ignoring non-ASCII chars
+    text = text.encode('ascii', 'ignore').decode('ascii')
+
+    # Replace spaces and special chars with underscores
+    text = re.sub(r'[^a-zA-Z0-9_-]', '_', text)
+
+    # Remove consecutive underscores
+    text = re.sub(r'_+', '_', text)
+
+    # Remove leading/trailing underscores
+    text = text.strip('_')
+
+    return text
 
 
 class KaggleDatasetProcessor:
@@ -107,9 +139,14 @@ class KaggleDatasetProcessor:
                 # Generate unique ID
                 vector_id = self.generate_id(img_path, artist_name)
 
+                # Extract individual artist name from filename
+                # Format: "artist-name_painting-title.jpg" -> "Artist Name"
+                individual_artist = img_path.stem.split('_')[0].replace('-', ' ').title()
+
                 # Create metadata
                 meta = {
-                    'artist_name': artist_name,
+                    'artist_name': individual_artist,  # Individual artist (e.g., "Vincent Van Gogh")
+                    'art_movement': artist_name,  # Art style/movement (e.g., "Impressionism")
                     'image_filename': img_path.name,
                     'image_path': str(img_path.relative_to(self.dataset_path))
                 }
@@ -173,8 +210,12 @@ class KaggleDatasetProcessor:
                     self.pinecone.upsert_embeddings(embeddings, ids, metadata)
                 pbar.update(len(batch))
 
-        # Step 4: Summary
-        print("\n[4/4] Upload complete!")
+        # Step 4: Compute and upload artist centroids
+        print("\n[4/5] Computing artist style centroids...")
+        self.compute_and_upload_artist_centroids()
+
+        # Step 5: Summary
+        print("\n[5/5] Upload complete!")
         print("=" * 60)
         print(f"✅ Successfully processed: {self.total_processed}")
         print(f"❌ Errors: {self.total_errors}")
@@ -193,6 +234,72 @@ class KaggleDatasetProcessor:
             print(f"\n⚠️  Error log saved to: {error_file}")
 
         print("=" * 60)
+
+    def compute_and_upload_artist_centroids(self):
+        """
+        Compute artist centroid embeddings and upload them.
+
+        This creates a "hero" style vector for each artist by averaging
+        all their artwork embeddings.
+        """
+        from collections import defaultdict
+
+        # Re-scan and process by artist
+        artist_embeddings = defaultdict(list)
+
+        print("Re-processing dataset to compute artist centroids...")
+        image_files = self.get_image_files()
+
+        # Group by artist and encode
+        for img_path, artist_name in tqdm(image_files, desc="Computing centroids"):
+            try:
+                from PIL import Image
+                image = Image.open(img_path).convert('RGB')
+                embedding = self.encoder.encode_image(image)
+
+                # Extract individual artist name
+                individual_artist = img_path.stem.split('_')[0].replace('-', ' ').title()
+                artist_embeddings[individual_artist].append(embedding)
+
+            except Exception as e:
+                # Skip errors, already logged during main upload
+                pass
+
+        # Compute centroids and upload
+        centroid_embeddings = []
+        centroid_ids = []
+        centroid_metadata = []
+
+        for artist_name, embeddings in artist_embeddings.items():
+            if len(embeddings) > 0:
+                # Average all embeddings for this artist
+                embeddings_array = np.stack(embeddings)
+                centroid = np.mean(embeddings_array, axis=0)
+
+                # Normalize
+                centroid = centroid / np.linalg.norm(centroid)
+
+                centroid_embeddings.append(centroid)
+                # Create ASCII-safe ID for Pinecone
+                safe_artist_id = make_ascii_safe_id(artist_name)
+                centroid_ids.append(f"artist_centroid_{safe_artist_id}")
+                centroid_metadata.append({
+                    'artist_name': artist_name,  # Keep original name in metadata
+                    'is_centroid': True,
+                    'artwork_count': len(embeddings),
+                    'type': 'artist_style'
+                })
+
+                print(f"  {artist_name}: {len(embeddings)} artworks averaged")
+
+        if centroid_embeddings:
+            print(f"\nUploading {len(centroid_embeddings)} artist centroids...")
+            self.pinecone.upsert_embeddings(
+                embeddings=np.array(centroid_embeddings),
+                ids=centroid_ids,
+                metadata=centroid_metadata
+            )
+            print("✅ Artist centroids uploaded!")
 
 
 def main():

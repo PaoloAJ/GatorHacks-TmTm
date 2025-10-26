@@ -6,6 +6,7 @@ import numpy as np
 from PIL import Image
 from typing import Optional
 
+
 class CNNEncoder:
     """
     CNN-based image encoder for style similarity analysis.
@@ -21,7 +22,12 @@ class CNNEncoder:
             use_pretrained: Whether to use pre-trained ImageNet weights
         """
         self.embedding_dim = embedding_dim
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+        elif torch.backends.mps.is_available():
+            self.device = torch.device("mps")
+        else:
+            self.device = torch.device("cpu")
 
         # Load pre-trained ResNet50 and modify for feature extraction
         if use_pretrained:
@@ -41,7 +47,7 @@ class CNNEncoder:
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(embedding_dim, embedding_dim),
-            nn.LayerNorm(embedding_dim)
+            nn.LayerNorm(embedding_dim),
         )
 
         # Move model to device and set to eval mode
@@ -51,15 +57,16 @@ class CNNEncoder:
         self.projection_head.eval()
 
         # Define image preprocessing transforms
-        self.transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225]
-            )
-        ])
+        self.transform = transforms.Compose(
+            [
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
 
     def encode(self, image: Image.Image) -> np.ndarray:
         """
@@ -115,15 +122,18 @@ class CNNEncoder:
 
     def save_weights(self, path: str):
         """Save the projection head weights."""
-        torch.save({
-            'projection_head': self.projection_head.state_dict(),
-            'embedding_dim': self.embedding_dim
-        }, path)
+        torch.save(
+            {
+                "projection_head": self.projection_head.state_dict(),
+                "embedding_dim": self.embedding_dim,
+            },
+            path,
+        )
 
     def load_weights(self, path: str):
         """Load the projection head weights."""
         checkpoint = torch.load(path, map_location=self.device)
-        self.projection_head.load_state_dict(checkpoint['projection_head'])
+        self.projection_head.load_state_dict(checkpoint["projection_head"])
         self.projection_head.eval()
 
 
@@ -145,7 +155,6 @@ class CustomCNN(nn.Module):
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
-
             # Conv Block 2
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
@@ -154,7 +163,6 @@ class CustomCNN(nn.Module):
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
-
             # Conv Block 3
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
@@ -166,7 +174,6 @@ class CustomCNN(nn.Module):
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
-
             # Conv Block 4
             nn.Conv2d(256, 512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),
@@ -178,9 +185,8 @@ class CustomCNN(nn.Module):
             nn.BatchNorm2d(512),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
-
             # Global Average Pooling
-            nn.AdaptiveAvgPool2d((1, 1))
+            nn.AdaptiveAvgPool2d((1, 1)),
         )
 
         self.classifier = nn.Sequential(
@@ -189,7 +195,7 @@ class CustomCNN(nn.Module):
             nn.ReLU(inplace=True),
             nn.Dropout(0.5),
             nn.Linear(embedding_dim, embedding_dim),
-            nn.LayerNorm(embedding_dim)
+            nn.LayerNorm(embedding_dim),
         )
 
     def forward(self, x):

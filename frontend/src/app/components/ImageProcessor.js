@@ -96,7 +96,7 @@ export function ImageProcessor({ clipResults, cnnResults, loadingClip, loadingCn
           {[1, 2, 3, 4, 5].map((i) => (
             <Card key={i} className="p-4">
               <div className="flex gap-6">
-                <Skeleton className="w-48 h-48 shrink-0" />
+                {loadingClip && <Skeleton className="w-48 h-48 shrink-0" />}
                 <div className="flex-1 space-y-3">
                   <Skeleton className="h-6 w-3/4" />
                   <Skeleton className="h-4 w-1/2" />
@@ -166,56 +166,29 @@ export function ImageProcessor({ clipResults, cnnResults, loadingClip, loadingCn
             );
           })}
           {activeMethod === 'CNN' && cnnResults.map((result) => {
-            const formattedYear = formatYear(result.year);
-            const formattedTitle = cleanTitle(result.title, result.year);
             const formattedArtist = formatArtistName(result.artist);
+            const score = result.score || 0;
 
             return (
               <Card key={result.rank} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="flex flex-col md:flex-row gap-6 p-4">
-                  {/* Image on the left */}
-                  <div className="w-full md:w-48 h-48 shrink-0 overflow-hidden rounded-lg bg-muted">
-                    <Image
-                      src={result.cdn_url}
-                      alt={formattedTitle}
-                      width={192}
-                      height={192}
-                      className="w-full h-full object-cover"
-                    />
+                <div className="p-6">
+                  <div className="flex items-center justify-between gap-4 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">Rank #{result.rank}</Badge>
+                      <Badge variant="outline">Similarity: {score.toFixed(3)}</Badge>
+                    </div>
                   </div>
 
-                  {/* Details on the right */}
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="secondary">Rank #{result.rank}</Badge>
-                          <Badge variant="outline">Score: {result.score.toFixed(3)}</Badge>
-                        </div>
-                        <h3 className="mt-2">{formattedTitle}</h3>
-                      </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground font-medium">Artist:</span>
+                      <span className="text-lg font-semibold">{formattedArtist}</span>
                     </div>
-
-                    <div className="space-y-2">
+                    {result.artwork_count > 0 && (
                       <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">Artist:</span>
-                        <span>{formattedArtist}</span>
+                        <span className="text-xs text-muted-foreground">Based on {result.artwork_count} artworks</span>
                       </div>
-
-                      {formattedYear && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">Year:</span>
-                          <span>{formattedYear}</span>
-                        </div>
-                      )}
-
-                      {result.style && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">Style:</span>
-                          <span>{result.style}</span>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
               </Card>

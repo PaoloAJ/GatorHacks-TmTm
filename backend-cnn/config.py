@@ -3,7 +3,7 @@ Configuration settings for the application
 """
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
-from typing import List
+from typing import List, Optional
 
 
 class Settings(BaseSettings):
@@ -24,7 +24,9 @@ class Settings(BaseSettings):
     port: int = 8000
 
     # CORS Settings
+    # Allow localhost for development and all Vercel deployments
     cors_origins: List[str] = ["http://localhost:3000"]
+    cors_origin_regex: Optional[str] = r"https://.*\.vercel\.app"
 
     # Model Settings
     embedding_dim: int = 512

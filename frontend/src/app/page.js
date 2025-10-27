@@ -100,7 +100,7 @@ export default function App() {
       formData.append("file", selectedFile);
 
       const response = await fetch(
-        "https://imagesimilarity.up.railway.app/search?alpha=0.3&top_k=5",
+        "https://backend-cnn-298442359505.us-east1.run.app/api/v1/images/match-artist-style?top_k=5",
         {
           method: "POST",
           body: formData,
@@ -108,18 +108,31 @@ export default function App() {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(
           `Server responded with status ${response.status}: ${
-            errorData.error || response.statusText
+            errorData.detail || response.statusText
           }`
         );
       }
 
       const data = await response.json();
 
-      if (data.results && Array.isArray(data.results)) {
-        setCnnResults(data.results);
+      if (data.matching_artists && Array.isArray(data.matching_artists)) {
+        // Transform the CNN response to match our results format
+        const transformedResults = data.matching_artists.map((artist, index) => ({
+          rank: index + 1,
+          artist: artist.artist_name,
+          // Use confidence score if available, otherwise style_match_score
+          score: artist.confidence || artist.style_match_score || 0,
+          artwork_count: artist.artwork_count || 0,
+          // CNN results don't have these fields
+          title: null,
+          year: null,
+          style: null,
+          cdn_url: null
+        }));
+        setCnnResults(transformedResults);
         setClipResults(null); // Clear CLIP results when showing CNN
       } else {
         throw new Error("Invalid response format from server");

@@ -29,3 +29,22 @@ README.md
 # Exclude test files
 test_*.py
 *_test.py
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Additional build artifacts
+*.log
+.pytest_cache/
+*.coverage

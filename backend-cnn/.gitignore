@@ -38,6 +38,7 @@ checkpoints/
 # Environment
 .env
 .env.local
+.env.yaml
 
 # OS
 .DS_Store

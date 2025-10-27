@@ -14,16 +14,24 @@ class EncoderService:
     """
     Service class for handling image encoding operations.
     Provides a clean interface to the CNN encoder without exposing internals.
+    Uses lazy loading to avoid blocking container startup.
     """
 
     _instance = None
     _encoder = None
+    _initialized = False
 
     def __new__(cls):
         """Singleton pattern to ensure only one encoder instance"""
         if cls._instance is None:
             cls._instance = super(EncoderService, cls).__new__(cls)
-            cls._encoder = CNNEncoder(
+        return cls._instance
+
+    def _ensure_initialized(self):
+        """Lazy initialization - only load model when first needed"""
+        if not self._initialized:
+            print("🔄 Initializing CNN encoder (lazy loading)...")
+            self._encoder = CNNEncoder(
                 embedding_dim=settings.embedding_dim,
                 use_pretrained=settings.use_pretrained
             )
@@ -33,10 +41,12 @@ class EncoderService:
             finetuned_path = Path(__file__).parent.parent / "models" / "finetuned_encoder.pth"
             if finetuned_path.exists():
                 print(f"✅ Loading fine-tuned weights from {finetuned_path}")
-                cls._encoder.load_weights(str(finetuned_path))
+                self._encoder.load_weights(str(finetuned_path))
             else:
                 print("⚠️  Using pre-trained ImageNet weights (no fine-tuned model found)")
-        return cls._instance
+
+            self._initialized = True
+            print("✅ CNN encoder initialized successfully")
 
     def encode_image(self, image: Image.Image) -> np.ndarray:
         """
@@ -48,6 +58,7 @@ class EncoderService:
         Returns:
             numpy array of shape (embedding_dim,)
         """
+        self._ensure_initialized()
         return self._encoder.encode(image)
 
     def encode_batch(self, images: List[Image.Image]) -> np.ndarray:
@@ -60,6 +71,7 @@ class EncoderService:
         Returns:
             numpy array of shape (batch_size, embedding_dim)
         """
+        self._ensure_initialized()
         return self._encoder.encode_batch(images)
 
     def compute_similarity(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
@@ -80,6 +92,7 @@ class EncoderService:
 
     def get_embedding_dimension(self) -> int:
         """Get the dimension of the embedding vectors"""
+        self._ensure_initialized()
         return self._encoder.embedding_dim
 
 
